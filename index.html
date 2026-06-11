@@ -11,35 +11,39 @@
   <!-- ══ COMPONENTES — ANTES DE <a-scene> ══ -->
   <script>
     var JOY_R     = 37;
-    var SPEED     = 0.175;
+    var SPEED     = 0.225;
     var joyActive = false;
     var joyDx = 0, joyDy = 0;
+	   
+	  var vertDir = 0; /* -1 bajar, 0 quieto, +1 subir */
 
     AFRAME.registerComponent('mobile-movement', {
       tick: function () {
-        if (!joyActive) return;
         var nx = joyDx / JOY_R;
         var ny = joyDy / JOY_R;
-        if (Math.abs(nx) < 0.05 && Math.abs(ny) < 0.05) return;
+        var moving = joyActive && (Math.abs(nx) > 0.05 || Math.abs(ny) > 0.05);
 
         var camEl = this.el.querySelector('[camera]');
         if (!camEl) return;
 
-        var euler = new THREE.Euler();
-        euler.setFromQuaternion(
-          camEl.object3D.getWorldQuaternion(new THREE.Quaternion()), 'YXZ'
-        );
-        var angle = euler.y;
-        var sinA  = Math.sin(angle);
-        var cosA  = Math.cos(angle);
+        if (moving) {
+          var euler = new THREE.Euler();
+          euler.setFromQuaternion(
+            camEl.object3D.getWorldQuaternion(new THREE.Quaternion()), 'YXZ'
+          );
+          var angle = euler.y;
+          var sinA  = Math.sin(angle);
+          var cosA  = Math.cos(angle);
+          var pos = this.el.object3D.position;
+          pos.x += sinA * (-ny) * SPEED;
+          pos.z += cosA * (-ny) * SPEED;
+          pos.x += cosA * nx * SPEED;
+          pos.z += (-sinA) * nx * SPEED;
+        }
 
-        var pos = this.el.object3D.position;
-        /* adelante/atrás: ny<0 arriba = avanzar */
-        pos.x += sinA * (-ny) * SPEED;
-        pos.z += cosA * (-ny) * SPEED;
-        /* derecha/izquierda */
-        pos.x += cosA * nx * SPEED;
-        pos.z += (-sinA) * nx * SPEED;
+        if (vertDir !== 0) {
+          camEl.object3D.position.y += vertDir * SPEED;
+        }
       }
     });
   </script>
