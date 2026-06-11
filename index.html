@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Hora de Aventuras</title>
+  <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-event-set-component@5.x.x/dist/aframe-event-set-component.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.7.0/dist/aframe-extras.min.js"></script>
+
+  <!-- ══ COMPONENTES — ANTES DE <a-scene> ══ -->
+  <script>
+    var JOY_R     = 37;
+    var SPEED     = 0.055;
+    var joyActive = false;
+    var joyDx = 0, joyDy = 0;
+
+    AFRAME.registerComponent('mobile-movement', {
+      tick: function () {
+        if (!joyActive) return;
+        var nx = joyDx / JOY_R;
+        var ny = joyDy / JOY_R;
+        if (Math.abs(nx) < 0.05 && Math.abs(ny) < 0.05) return;
+
+        var camEl = this.el.querySelector('[camera]');
+        if (!camEl) return;
+
+        var euler = new THREE.Euler();
+        euler.setFromQuaternion(
+          camEl.object3D.getWorldQuaternion(new THREE.Quaternion()), 'YXZ'
+        );
+        var angle = euler.y;
+        var sinA  = Math.sin(angle);
+        var cosA  = Math.cos(angle);
+
+        var pos = this.el.object3D.position;
+        /* adelante/atrás: ny<0 arriba = avanzar */
+        pos.x += sinA * (-ny) * SPEED;
+        pos.z += cosA * (-ny) * SPEED;
+        /* derecha/izquierda */
+        pos.x += cosA * nx * SPEED;
+        pos.z += (-sinA) * nx * SPEED;
+      }
+    });
+  </script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { overflow: hidden; }
+
+    #joy-zone {
+      position: fixed; bottom: 28px; left: 20px;
+      width: 120px; height: 120px;
+      z-index: 9999; touch-action: none;
+    }
+    .joy-base {
+      width: 120px; height: 120px; border-radius: 50%;
+      background: rgba(255,255,255,0.13);
+      border: 2px solid rgba(255,255,255,0.4);
+      position: relative;
+    }
+    .joy-thumb {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: rgba(255,255,255,0.55);
+      border: 2px solid rgba(255,255,255,0.9);
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      pointer-events: none;
+    }
+
+    #btn-portal {
+      position: fixed; bottom: 28px; right: 20px;
+      width: 76px; height: 76px; border-radius: 50%;
+      background: rgba(80,178,100,0.25);
+      border: 2px solid rgba(80,178,100,0.9);
+      color: #fff; font-family: sans-serif;
+      font-size: 11px; font-weight: bold;
+      display: flex; align-items: center; justify-content: center;
+      text-align: center; line-height: 1.3;
+      z-index: 9999; touch-action: manipulation; user-select: none;
+    }
+    #btn-portal:active { background: rgba(80,178,100,0.55); }
+
+    #crosshair {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      pointer-events: none; z-index: 9998;
+    }
+
+    #toast {
+      position: fixed; bottom: 160px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.65); color: #fff;
+      font-family: sans-serif; font-size: 14px;
+      padding: 8px 18px; border-radius: 20px;
+      z-index: 9999; opacity: 0; transition: opacity 0.3s;
+      pointer-events: none; white-space: nowrap;
+    }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <!-- JOYSTICK -->
+  <div id="joy-zone">
+    <div class="joy-base" id="joy-base">
+      <div class="joy-thumb" id="joy-thumb"></div>
+    </div>
+  </div>
+
+  <!-- BOTÓN PORTAL -->
+  <div id="btn-portal">ENTRAR<br>PORTAL</div>
+
+  <!-- CROSSHAIR -->
+  <div id="crosshair">
+    <svg width="34" height="34" viewBox="0 0 34 34">
+      <circle cx="17" cy="17" r="13" fill="none" stroke="white" stroke-width="1.5" opacity="0.75"/>
+      <line x1="17" y1="4"  x2="17" y2="11" stroke="white" stroke-width="1.5" opacity="0.75"/>
+      <line x1="17" y1="23" x2="17" y2="30" stroke="white" stroke-width="1.5" opacity="0.75"/>
+      <line x1="4"  y1="17" x2="11" y2="17" stroke="white" stroke-width="1.5" opacity="0.75"/>
+      <line x1="23" y1="17" x2="30" y2="17" stroke="white" stroke-width="1.5" opacity="0.75"/>
+      <circle cx="17" cy="17" r="2" fill="white" opacity="0.9"/>
+    </svg>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast"></div>
+
+  <!-- ══════════ ESCENA A-FRAME ══════════ -->
+  <a-scene vr-mode-ui="enabled: true">
+
+    <a-assets>
+      <a-sound id="cancionmarceline" src="Soy tú problema castellano letra (hora de aventuras).mp3"></a-sound>
+    </a-assets>
+
+    <a-light id="ambiente" type="ambient" color="#FFFFFF" intensity="1"></a-light>
+
+    <a-box
+      scale="3.6 3.6 3.6"
+      position="-18 2 8"
+      color="green"
+      event-set__enter="_event: mouseenter; color: #6F4E37"
+      event-set__leave="_event: mouseleave; color: green">
+    </a-box>
+
+    <a-gltf-model alt="suelo"
+      src="cesped_opt.glb"
+      scale="5 5 5"
+      position="0 -0.25 0">
+    </a-gltf-model>
+
+    <a-gltf-model alt="jake el perro"
+      src="jake_the_dog_opt.glb"
+      position="-5.256 0.178 6.854"
+      rotation="0 -50.323 0"
+      scale="1 1 1"
+      animation="property: rotation; to: 0 360 0; loop: true; dur: 1000; easing: linear">
+    </a-gltf-model>
+
+    <a-gltf-model alt="mundo"
+      src="skybox_minecraft_daylight_opt.glb"
+      scale="200 200 200"
+      animation="property: rotation; to: 0 360 0; loop: true; dur: 700000; easing: linear">
+    </a-gltf-model>
+
+    <a-entity alt="sol"
+      gltf-model="sun_opt.glb"
+      animation-mixer
+      rotation="0 0 0"
+      scale="4 4 4"
+      position="101.18345 164.99841 -223.70109">
+    </a-entity>
+
+    <a-light id="soliluminado" type="point" color="#FFFFFF"
+      position="101.18345 153.75238 -154.15239"
+      intensity="2000"
+      light="color: #ffffff; intensity: 500"
+      scale="4 4 4">
+    </a-light>
+
+    <a-gltf-model alt="casa del perro"
+      src="the_treehouse_opt.glb"
+      position="-1.207 -0.506 -3.252"
+      scale="27.732 27.120 24.362"
+      rotation="0 16.686 0"
+      sound="src: #intro; on: mouseenter">
+    </a-gltf-model>
+
+    <a-gltf-model
+      src="https://cdn.tinyglb.com/models/1ed1d90cf5174510b052eb526efd6365.glb"
+      position="0 0 0"
+      scale="0.01 0.01 0.01">
+    </a-gltf-model>
+
+    <a-entity gltf-model="animated_moon_opt.glb"
+      animation-mixer=""
+      scale="50 50 50"
+      position="-67.94762 99.52 226.48211">
+    </a-entity>
+
+    <a-gltf-model alt="2arboles"
+      src="arboles_opt.glb"
+      scale="2.562 2.562 2.562"
+      rotation="0 0 0"
+      position="0.516 0 -17.891">
+    </a-gltf-model>
+
+    <a-gltf-model alt="1arboles"
+      src="arboles_opt.glb"
+      scale="2.562 2.562 2.562"
+      rotation="0 0 0"
+      position="0.516 0 -17.891">
+    </a-gltf-model>
+
+    <a-gltf-model alt="marceline"
+      src="marceline_the_vampire_queen_opt.glb"
+      scale="2.207 2.207 2.207"
+      rotation="0 -32.675 0"
+      position="6.521 0 5.595"
+      sound="src: #cancionmarceline; on: mouseenter">
+    </a-gltf-model>
+
+    <a-gltf-model alt="kake"
+      src="house_cat_opt.glb"
+      scale="1.151 1.151 1.151"
+      rotation="0 -32.675 3.418"
+      position="-5.239 0 3.418">
+    </a-gltf-model>
+
+    <a-gltf-model alt="chico"
+      src="finn_adventure_time_opt.glb"
+      scale="3.509 3.509 3.509"
+      rotation="0 -32.675 0"
+      position="-13.628 28.778 -3.481"
+      event-set__enter="_event: mouseenter; _target: #pensamiento; visible: true"
+      event-set__leave="_event: mouseleave; _target: #pensamiento; visible: false">
+    </a-gltf-model>
+
+    <!-- PORTAL -->
+    <a-link id="miEnlace1"
+      href="https://carlatienzam-byte.github.io/EPE-IESCarmen-de-Burgos-Segui/"
+      title="Backrooms"
+      position="25.64512 1.72418 6"
+      scale="0.5 0.5 0.5"
+      geometry="primitive: circle; segments: 64"
+      material="shader: portal; side: double; previewDistance: 7.5"
+      rotation="0 90 0"
+      class="portal"
+      data-url="https://carlatienzam-byte.github.io/EPE-IESCarmen-de-Burgos-Segui/">
+      <a-entity text="align: center; color: white; font: kelsonsans; value: Backrooms; width: 5"
+                position="0 1.5 0" rotation="0 180 0"></a-entity>
+    </a-link>
+
+    <!--
+      CÁMARA:
+      - rig en y=0, mobile-movement registrado antes de <a-scene>
+      - camera userHeight:0, posición manual 0 1.6 0
+      - wasd-controls con fly:true y acceleration:80 igual que el original
+    -->
+    <a-entity id="rig" position="0 0 0" mobile-movement>
+      <a-camera id="camera"
+        position="0 1.6 0"
+        camera="userHeight: 0"
+        look-controls="touchEnabled: true; magicWindowTrackingEnabled: false; pointerLockEnabled: false"
+        wasd-controls="fly: true; acceleration: 80">
+        <a-cursor color="#fff" fuse="false" raycaster="objects: .portal"></a-cursor>
+      </a-camera>
+    </a-entity>
+
+  </a-scene>
+
+  <script>
+    /* ── JOYSTICK ── */
+    var joyBase  = document.getElementById('joy-base');
+    var joyThumb = document.getElementById('joy-thumb');
+
+    function joyPos(touch) {
+      var r = joyBase.getBoundingClientRect();
+      return {
+        x: touch.clientX - r.left - r.width  / 2,
+        y: touch.clientY - r.top  - r.height / 2
+      };
+    }
+
+    joyBase.addEventListener('touchstart', function(e) {
+      e.preventDefault(); joyActive = true;
+    }, { passive: false });
+
+    joyBase.addEventListener('touchmove', function(e) {
+      e.preventDefault();
+      if (!joyActive) return;
+      var p = joyPos(e.touches[0]);
+      var d = Math.sqrt(p.x*p.x + p.y*p.y);
+      var c = d > JOY_R ? JOY_R / d : 1;
+      joyDx =  p.x * c;
+      joyDy = -p.y * c;
+      joyThumb.style.transform =
+        'translate(calc(-50% + '+joyDx+'px), calc(-50% + '+ (-joyDy) +'px))';
+    }, { passive: false });
+
+    joyBase.addEventListener('touchend', function(e) {
+      e.preventDefault();
+      joyActive = false; joyDx = 0; joyDy = 0;
+      joyThumb.style.transform = 'translate(-50%,-50%)';
+    }, { passive: false });
+
+    /* ── TOAST ── */
+    function showToast(msg) {
+      var t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(t._tid);
+      t._tid = setTimeout(function(){ t.classList.remove('show'); }, 2500);
+    }
+
+    /* ── PORTAL por raycaster central ── */
+    function getPortalAtCenter() {
+      var camEl = document.getElementById('camera');
+      if (!camEl) return null;
+      var cam = camEl.getObject3D('camera');
+      if (!cam) return null;
+
+      var rc = new THREE.Raycaster();
+      rc.setFromCamera(new THREE.Vector2(0,0), cam);
+
+      var meshes = [];
+      document.querySelectorAll('.portal').forEach(function(el) {
+        el.object3D.traverse(function(o){ if (o.isMesh) meshes.push(o); });
+      });
+
+      var hits = rc.intersectObjects(meshes, true);
+      if (!hits.length) return null;
+
+      var obj = hits[0].object;
+      for (var i = 0; i < 8; i++) {
+        if (obj.el && obj.el.dataset && obj.el.dataset.url) return obj.el;
+        if (!obj.parent) break;
+        obj = obj.parent;
+      }
+      return null;
+    }
+
+    function activatePortal(el) {
+      if (!el) { showToast('Apunta a un portal'); return; }
+      showToast('Entrando: ' + (el.getAttribute('title') || 'Portal'));
+      setTimeout(function(){ window.location.href = el.dataset.url; }, 600);
+    }
+
+    /* ── BOTÓN PORTAL ── */
+    var btnPortal = document.getElementById('btn-portal');
+    btnPortal.addEventListener('touchstart', function(e) {
+      e.preventDefault(); activatePortal(getPortalAtCenter());
+    }, { passive: false });
+    btnPortal.addEventListener('click', function() {
+      activatePortal(getPortalAtCenter());
+    });
+
+    /* ── CLICK EN PORTALES (desktop) ── */
+    var el1 = document.getElementById('miEnlace1');
+    if (el1) el1.addEventListener('click', function() {
+      window.location.href = el1.dataset.url;
+    });
+
+    /* ── DESBLOQUEO DE AUDIO EN MÓVIL ── */
+    var audioUnlocked = false;
+    function unlockAudio() {
+      if (audioUnlocked) return;
+      audioUnlocked = true;
+      var ctx = THREE.AudioContext ? THREE.AudioContext.getContext() : null;
+      if (ctx && ctx.state === 'suspended') ctx.resume();
+      var soundEl = document.querySelector('a-sound');
+      if (soundEl) {
+        var soundComp = soundEl.components && soundEl.components.sound;
+        if (soundComp) soundComp.playSound();
+      }
+    }
+    document.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
+    document.addEventListener('click',      unlockAudio, { once: true });
+  </script>
+
+</body>
+</html>
