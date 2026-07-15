@@ -153,10 +153,12 @@
   <div id="toast"></div>
 
   <!-- ══════════ ESCENA A-FRAME ══════════ -->
-  <a-scene vr-mode-ui="enabled: true">
+  <a-scene vr-mode-ui="enabled: true"
+    gltf-model="dracoDecoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.7/">
 
     <a-assets>
       <a-sound id="cancionmarceline" src="Soy tú problema castellano letra (hora de aventuras).mp3"></a-sound>
+      <a-sound id="cancionfinn" src="hora_de_aventuras_intro.mp3"></a-sound>
     </a-assets>
 
     <a-light id="ambiente" type="ambient" color="#FFFFFF" intensity="1"></a-light>
@@ -214,8 +216,8 @@
 
     <a-gltf-model
       src="https://cdn.tinyglb.com/models/1ed1d90cf5174510b052eb526efd6365.glb"
-      position="0 0 0"
-      scale="0.01 0.01 0.01">
+      position="12 0 -10"
+      scale="1 1 1">
     </a-gltf-model>
 
     <a-entity gltf-model="animated_moon_opt.glb"
@@ -238,12 +240,12 @@
       position="0.516 0 -17.891">
     </a-gltf-model>
 
-    <a-gltf-model alt="marceline"
+    <a-gltf-model id="marceline" alt="marceline"
       src="marceline_the_vampire_queen_opt.glb"
       scale="2.207 2.207 2.207"
       rotation="0 -32.675 0"
       position="6.521 0 5.595"
-      sound="src: #cancionmarceline; on: mouseenter">
+      sound="src: #cancionmarceline">
     </a-gltf-model>
 
     <a-gltf-model alt="kake"
@@ -253,11 +255,12 @@
       position="-5.239 0 3.418">
     </a-gltf-model>
 
-    <a-gltf-model alt="chico"
+    <a-gltf-model id="finn" alt="chico"
       src="finn_adventure_time_opt.glb"
       scale="3.509 3.509 3.509"
       rotation="0 -32.675 0"
       position="-13.628 28.778 -3.481"
+      sound="src: #cancionfinn"
       event-set__enter="_event: mouseenter; _target: #pensamiento; visible: true"
       event-set__leave="_event: mouseleave; _target: #pensamiento; visible: false">
     </a-gltf-model>
@@ -284,7 +287,7 @@
       - camera userHeight:0, posición manual 0 1.6 0
       - wasd-controls con fly:true y acceleration:80 igual que el original
     -->
-    <a-entity id="rig" position="0 0 0" mobile-movement>
+    <a-entity id="rig" position="0.63 0 10" mobile-movement>
       <a-camera id="camera"
         position="0 1.6 0"
         camera="userHeight: 0"
@@ -392,10 +395,46 @@
       activatePortal(getPortalAtCenter());
     });
 
-    /* ── CLICK EN PORTALES (desktop) ── */
-    var el1 = document.getElementById('miEnlace1');
-    if (el1) el1.addEventListener('click', function() {
-      window.location.href = el1.dataset.url;
+    /* ── MÚSICA DE FINN: ALTERNAR CON CLIC ──
+       Un clic la enciende, otro clic la apaga. Independiente de Marceline. */
+    var finn = document.getElementById('finn');
+    if (finn) {
+      finn.addEventListener('click', function () {
+        var soundComp = finn.components.sound;
+        if (!soundComp) return;
+        if (soundComp.isPlaying) {
+          soundComp.pauseSound();
+        } else {
+          soundComp.playSound();
+        }
+      });
+    }
+
+    /* ── MÚSICA DE MARCELINE: ALTERNAR CON CLIC ──
+       Un clic la enciende, otro clic la apaga. No se activa solo con mirarla. */
+    var marceline = document.getElementById('marceline');
+    if (marceline) {
+      marceline.addEventListener('click', function () {
+        var soundComp = marceline.components.sound;
+        if (!soundComp) return;
+        if (soundComp.isPlaying) {
+          soundComp.pauseSound();
+        } else {
+          soundComp.playSound();
+        }
+      });
+    }
+
+    /* ── CLICK EN PORTALES: BLOQUEADO A PROPÓSITO ──
+       Solo se puede entrar a un portal pulsando el botón "ENTRAR PORTAL".
+       Interceptamos el clic en fase de captura (antes de que el componente
+       'link' interno de A-Frame procese su navegación automática) y lo
+       detenemos por completo. */
+    document.querySelectorAll('.portal').forEach(function(el) {
+      el.addEventListener('click', function(e) {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      }, true);
     });
 
     /* ── DESBLOQUEO DE AUDIO EN MÓVIL ── */
