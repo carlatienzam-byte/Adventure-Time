@@ -437,18 +437,15 @@
       }, true);
     });
 
-    /* ── DESBLOQUEO DE AUDIO EN MÓVIL ── */
+    /* ── DESBLOQUEO DE AUDIO EN MÓVIL ──
+       Solo reanuda el AudioContext compartido; la reproducción de cada
+       sonido la controla su propio clic (Marceline/Finn más arriba). */
     var audioUnlocked = false;
     function unlockAudio() {
       if (audioUnlocked) return;
       audioUnlocked = true;
       var ctx = THREE.AudioContext ? THREE.AudioContext.getContext() : null;
       if (ctx && ctx.state === 'suspended') ctx.resume();
-      var soundEl = document.querySelector('a-sound');
-      if (soundEl) {
-        var soundComp = soundEl.components && soundEl.components.sound;
-        if (soundComp) soundComp.playSound();
-      }
     }
     document.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
     document.addEventListener('click',      unlockAudio, { once: true });
